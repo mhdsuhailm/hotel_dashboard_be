@@ -10,8 +10,8 @@ app.use(cors());
 app.use(express.json());
 
 app.use("/api/dashboard", dashboardRoutes);
-app.use("/api/admin",orderRoutes);
-
+app.use("/api/orders",orderRoutes);
+app.use("/api/kitchen", require("./routes/kitchenRoutes.js"));
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, ()=>{
