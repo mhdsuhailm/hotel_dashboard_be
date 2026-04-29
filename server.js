@@ -12,6 +12,7 @@ app.use(express.json());
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/orders",orderRoutes);
 app.use("/api/kitchen", require("./routes/kitchenRoutes.js"));
+app.use("/api/menu", require("./routes/menuRoutes"));
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, ()=>{
