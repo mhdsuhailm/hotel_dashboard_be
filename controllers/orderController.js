@@ -62,6 +62,7 @@ exports.getOrders = async (req, res) => {
         END AS address,
 
         o.status,
+        o.payment_status,
         o.total_amount,
 
         u.phone_number AS delivery_contact,
@@ -75,13 +76,14 @@ exports.getOrders = async (req, res) => {
       LEFT JOIN order_items oi ON oi.order_id = o.id
 
       GROUP BY 
-        o.id, u.display_name, u.first_name, u.phone_number,
+        o.id, u.display_name, u.first_name, u.phone_number,o.order_number,o.payment_status,
         da.address, o.status, o.total_amount, o.order_type
 
       ORDER BY o.created_at DESC;
     `);
 
     res.json(result.rows);
+    console.log("ORDERS RESULT:", result.rows);
   } catch (err) {
     console.log(err);
     res.status(500).json({ error: "Server error" });
