@@ -67,7 +67,16 @@ exports.getOrders = async (req, res) => {
 
         u.phone_number AS delivery_contact,
 
-        STRING_AGG(oi.item_name, ', ') AS items
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'name', oi.item_name,
+              'qty', oi.quantity,
+              'price', oi.unit_price,
+              'total', oi.total_price
+            )
+          ), '[]'
+        ) AS items        
 
       FROM orders o
 
@@ -82,7 +91,13 @@ exports.getOrders = async (req, res) => {
       ORDER BY o.created_at DESC;
     `);
 
-    res.json(result.rows);
+    // res.json(result.rows);
+    res.json(
+      result.rows.map((order) => ({
+        ...order,
+        allowed_next: STATUS_FLOW[order.status] || []
+      }))
+    );
     console.log("ORDERS RESULT:", result.rows);
   } catch (err) {
     console.log(err);
@@ -91,10 +106,10 @@ exports.getOrders = async (req, res) => {
 };
 exports.updateOrderStatus = async (req, res) => {
   const { orderId, newStatus } = req.body;
-
+const normalizedNewStatus = newStatus.trim().toLowerCase();
   try {
     // 1️⃣ Check valid status
-    if (!VALID_STATUSES.includes(newStatus)) {
+    if (!VALID_STATUSES.includes(normalizedNewStatus)) {
       return res.status(400).json({
         message: "Invalid status value",
       });
@@ -112,12 +127,11 @@ exports.updateOrderStatus = async (req, res) => {
       });
     }
 
-    const currentStatus = currentResult.rows[0].status;
-
+const currentStatus = currentResult.rows[0].status.trim().toLowerCase();
     // 3️⃣ Check allowed transition
     const allowedNext = STATUS_FLOW[currentStatus] || [];
 
-    if (!allowedNext.includes(newStatus)) {
+    if (!allowedNext.includes(normalizedNewStatus)) {
       return res.status(400).json({
         message: `Cannot change from ${currentStatus} to ${newStatus}`,
       });
@@ -128,19 +142,19 @@ exports.updateOrderStatus = async (req, res) => {
       UPDATE orders 
       SET status = $1
     `;
-    let values = [newStatus];
+    let values = [normalizedNewStatus];
 
     // optional timestamps
-    if (newStatus === "preparing") {
+    if (normalizedNewStatus === "preparing") {
       query += `, preparing_at = NOW()`;
     }
-    if (newStatus === "ready") {
+    if (normalizedNewStatus === "ready") {
       query += `, ready_at = NOW()`;
     }
-    if (newStatus === "served") {
+    if (normalizedNewStatus === "served") {
       query += `, served_at = NOW()`;
     }
-    if (newStatus === "completed") {
+    if (normalizedNewStatus === "completed") {
       query += `, completed_at = NOW()`;
     }
 
@@ -148,7 +162,9 @@ exports.updateOrderStatus = async (req, res) => {
     values.push(orderId);
 
     await pool.query(query, values);
-
+console.log("CURRENT:", currentStatus);
+console.log("NEW:", normalizedNewStatus);
+console.log("ALLOWED:", STATUS_FLOW[currentStatus]);
     res.json({
       success: true,
       message: "Status updated successfully",
